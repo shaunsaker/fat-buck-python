@@ -26,87 +26,79 @@ exchanges = exchangesRef.get()
 
 today = dateToDateString(datetime.now())
 
-with alive_bar(getNumberOfSymbolsToProcess(exchanges)) as bar:
-    for exchange in exchanges:
-        exchangeData = exchange.to_dict()
-        exchangeName = exchangeData["name"]
-        exchangeSymbols = exchangeData["symbols"]
+for exchange in exchanges:
+    exchangeData = exchange.to_dict()
+    exchangeName = exchangeData["name"]
+    exchangeSymbols = exchangeData["symbols"]
 
-        for symbolData in exchangeSymbols:
-            symbol = symbolData["symbol"]
+    for symbolData in exchangeSymbols:
+        symbol = symbolData["symbol"]
 
-            print(f"Updating {symbol}...")
+        print(f"Updating {symbol}...")
 
-            # get the stock
-            stockRef = (
-                exchangesRef.document(exchangeName)
-                .collection("stocks")
-                .document(symbol)
+        # get the stock
+        stockRef = (
+            exchangesRef.document(exchangeName).collection("stocks").document(symbol)
+        )
+        stockData = stockRef.get().to_dict()
+
+        # skip stocks that don't exist
+        if not stockData:
+            continue
+
+        # replace any None values with 0 (lord knows how they got in there, probably my spaghetti code)
+        recursiveReplacer(stockData, None, 0)
+
+        stock = typedload.load(stockData, Stock)
+
+        # don't process stocks that have already been updated today
+        if stock.lastUpdated == today:
+            continue
+
+        try:
+            # get the latest price
+            stock = fetchLatestPrice(stock, exchange)
+
+            # get and merge the latest financial statements
+            latestFinancialStatements = fetchLatestFinancialStatements(symbol)
+
+            financialStatements = makeFinancialStatements(
+                stock.financialStatements, latestFinancialStatements
             )
-            stockData = stockRef.get().to_dict()
 
-            # skip stocks that don't exist
-            if not stockData:
-                bar()
-                continue
-
-            # replace any None values with 0 (lord knows how they got in there, probably my spaghetti code)
-            recursiveReplacer(stockData, None, 0)
-
-            stock = typedload.load(stockData, Stock)
-
-            # don't process stocks that have already been updated today
-            if stock.lastUpdated == today:
-                bar()
-                continue
-
-            try:
-                # get the latest price
-                stock = fetchLatestPrice(stock, exchange)
-
-                # get and merge the latest financial statements
-                latestFinancialStatements = fetchLatestFinancialStatements(symbol)
-
-                financialStatements = makeFinancialStatements(
-                    stock.financialStatements, latestFinancialStatements
-                )
-
-                # if empty financial statements, we don't want to save it
-                if not financialStatements:
-                    removeStock(stockRef, symbol)
-                    bar()
-                    continue
-
-                stock.financialStatements = financialStatements
-
-                # get new historical pricing
-                historicalPricing = fetchHistoricalPricing(symbol)
-
-                if historicalPricing:
-                    stock.historicalPricing = historicalPricing
-
-                # get the latest shares outstanding
-                stock.sharesOutstanding = fetchSharesOutstanding(symbol)
-
-                # get the latest dividends
-                stock = handleDividendsPaid(stock)
-
-            except:
+            # if empty financial statements, we don't want to save it
+            if not financialStatements:
                 removeStock(stockRef, symbol)
-                bar()
+
                 continue
 
-            # evaluate the stock
-            stock.valuation = evaluate(stock)
+            stock.financialStatements = financialStatements
 
-            # add the last updated date
-            stock.lastUpdated = today
+            # get new historical pricing
+            historicalPricing = fetchHistoricalPricing(symbol)
 
-            # convert our stock class to a json string
-            stockJson = json.loads(
-                json.dumps(stock, default=lambda o: o.__dict__, indent=2)
-            )
+            if historicalPricing:
+                stock.historicalPricing = historicalPricing
 
-            stockRef.set(stockJson, merge=True)
+            # get the latest shares outstanding
+            stock.sharesOutstanding = fetchSharesOutstanding(symbol)
 
-            bar()
+            # get the latest dividends
+            stock = handleDividendsPaid(stock)
+
+        except:
+            removeStock(stockRef, symbol)
+            continue
+
+        # evaluate the stock
+        stock.valuation = evaluate(stock)
+
+        # add the last updated date
+        stock.lastUpdated = today
+
+        # convert our stock class to a json string
+        stockJson = json.loads(
+            json.dumps(stock, default=lambda o: o.__dict__, indent=2)
+        )
+
+        stockRef.set(stockJson, merge=True)

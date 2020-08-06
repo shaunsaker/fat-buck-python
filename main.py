@@ -30,11 +30,15 @@ for exchange in exchanges:
     exchangeData = exchange.to_dict()
     exchangeName = exchangeData["name"]
     exchangeSymbols = exchangeData["symbols"]
+    symbolCount = 0
 
     for symbolData in exchangeSymbols:
         symbol = symbolData["symbol"]
 
-        print(f"Updating {symbol}...")
+        symbolCount += 1
+        print(
+            f"Updating {exchangeName}: {symbol}, {symbolCount} of {len(exchangeSymbols)}..."
+        )
 
         # get the stock
         stockRef = (

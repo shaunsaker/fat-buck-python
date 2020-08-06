@@ -1,3 +1,3 @@
 us: python main.py --exchange US
-aus: python main.py --exchange AUS
+au: python main.py --exchange AU
 jse: python main.py --exchange JSE

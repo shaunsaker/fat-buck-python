@@ -100,9 +100,11 @@ def getGrowthRate(values):
     return growthRate
 
 
-def getValueGrowthRate(stock: Stock, statementType: str, key: str) -> Ratio:
+def getValueGrowthRate(
+    stock: Stock, statementType: str, key: str, limitTo: int
+) -> Ratio:
     historicalValues = getHistoricalValuesFromFinancialStatements(
-        stock.financialStatements[statementType], key
+        stock.financialStatements[statementType], key, limitTo
     )
     values = []
     for item in historicalValues:
@@ -508,9 +510,11 @@ def getNetIncomeForYear(stock):
     return netIncomeForYear
 
 
-def getNetIncome3yrAvg(stock):
+def getNetIncomeForYears(stock, years):
     historicalNetIncomes = getHistoricalValuesFromFinancialStatements(
-        stock.financialStatements.incomeStatements, "netIncome", 12
+        stock.financialStatements.incomeStatements,
+        "netIncome",
+        years * 4,  # * 4 quarters
     )
 
     totalNetIncome = 0
@@ -518,7 +522,7 @@ def getNetIncome3yrAvg(stock):
         netIncomeForQuarter = historicalNetIncomes[i]["value"]
         totalNetIncome = totalNetIncome + netIncomeForQuarter
 
-    return totalNetIncome / 3
+    return totalNetIncome / years
 
 
 def getTotalRevenueForYear(stock):
@@ -593,10 +597,12 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     assets = latestBalanceSheet.assets
     liabilities = latestBalanceSheet.liabilities
     equity = getEquity(assets, liabilities)
-    netIncome3yrAvg = getNetIncome3yrAvg(stock)
-    eps = getEps(netIncome3yrAvg, stock.sharesOutstanding)
+    netIncomeAvg = getNetIncomeForYears(stock, model.yearsForEarningsCalcs)
+    eps = getEps(netIncomeAvg, stock.sharesOutstanding)
     pe = getPe(stock.currentPrice, eps)
-    growthRate = getValueGrowthRate(stock, "incomeStatements", "netIncome")
+    growthRate = getValueGrowthRate(
+        stock, "incomeStatements", "netIncome", model.yearsForEarningsCalcs * 4
+    ) * (1 - model.minMos)
     totalRevenue = getTotalRevenueForYear(stock)
     earningsBeforeInterestAndTax = getEarningsBeforeInterestAndTaxForYear(stock)
     statementYears = getStatementYears(stock)
@@ -618,7 +624,7 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     valuation.pb = pb
     valuation.blendedMultiplier = pe * pb
     valuation.fcf = fcf
-    valuation.peMultipleIv = getPeMultipleIv(eps, avgPe, growthRate, model.discountRate)
+    valuation.peMultipleIv = getPeMultipleIv(eps, pe, growthRate, model.discountRate)
     valuation.grahamIv = getGrahamIv(eps, growthRate, model.discountRate)
     valuation.dcfIv = getDcfIv(
         fcf,
@@ -651,49 +657,7 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
 
 
 def getFairValue(valuation: Valuation) -> Currency:
-    # using our intrinsic value calculations
-    # try and calculate an average fair value
-    ivs = []
-
-    ivs.append(valuation.liquidationIv)
-    ivs.append(valuation.peMultipleIv)
-    ivs.append(valuation.grahamIv)
-    ivs.append(valuation.dcfIv)
-    ivs.append(valuation.roeIv)
-
-    # TODO test use avg
-    # iv = round(sum(ivs) / len(ivs), 2)
-
-    # TODO test use median
-    # ivs.sort()
-    # iv = np.median(ivs)
-
-    # use lowest
-    iv = min(ivs)
-
-    return iv
-
-
-def getMos(valuation: Valuation, currentPrice: Currency) -> Ratio:
-    if not valuation.fairValue or valuation.fairValue < 0:
-        return 0
-
-    fairValue = valuation.fairValue
-    return abs(fairValue - currentPrice) / fairValue
-
-
-def getBuyPrice(valuation: Valuation, minMos: Ratio) -> Currency:
-    if not valuation.fairValue or valuation.fairValue < 0:
-        return 0
-
-    return round(valuation.fairValue * (1 - minMos), 2)
-
-
-def getSellPrice(valuation: Valuation) -> Currency:
-    if not valuation.fairValue or valuation.fairValue < 0:
-        return 0
-
-    return valuation.fairValue
+    return valuation.peMultipleIv
 
 
 def getViability(valuation: Valuation, model: ValuationModel) -> bool:
@@ -725,15 +689,13 @@ def getInstruction(
     valuation: Valuation, currentPrice: Currency, model: ValuationModel
 ) -> str:
     stockIsViable = getViability(valuation, model)
-    stockIsUndervalued = currentPrice <= valuation.buyPrice
-    stockIsOvervalued = currentPrice >= valuation.sellPrice
+    stockIsUndervalued = currentPrice <= valuation.fairValue
+    stockIsOvervalued = currentPrice >= valuation.fairValue
 
     if not stockIsViable or stockIsOvervalued:
         return "SELL"
     elif stockIsViable and stockIsUndervalued:
         return "BUY"
-    elif stockIsViable:
-        return "HOT"
     else:
         return "HOLD"
 
@@ -746,9 +708,6 @@ def evaluate(stock: Stock) -> Valuation:
 
     # evaluate/assess the valuation
     valuation.fairValue = getFairValue(valuation)
-    valuation.mos = getMos(valuation, stock.currentPrice)
-    valuation.buyPrice = getBuyPrice(valuation, model.minMos)
-    valuation.sellPrice = getSellPrice(valuation)
     valuation.instruction = getInstruction(valuation, stock.currentPrice, model)
 
     return valuation
@@ -764,8 +723,7 @@ def evaluateStock(symbol: Symbol, exchange: str, dateString: str = ""):
         filepath = f"data/tempSnapshots/{dateString}/{exchange}/{symbol}.json"  # filepath to save new snapshot
         stock = getStockSnapshot(stock, date)
 
-    model = ValuationModel()
-    valuation = evaluate(stock, model)
+    valuation = evaluate(stock)
     stock.valuation = valuation
 
     with utils.safeOpenWrite(filepath) as file:

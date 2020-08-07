@@ -376,9 +376,6 @@ class Valuation:
     altmanZScore: Ratio = 0.00
     statementYears: int = 0
     fairValue: Currency = 0.00
-    mos: Ratio = 0.00
-    buyPrice: Currency = 0.00
-    sellPrice: Currency = 0.00
     instruction: str = ""
 
     def __getitem__(self, key):
@@ -388,7 +385,7 @@ class Valuation:
 @dataclass
 class ValuationModel:
     name: str = ""
-    discountRate: Ratio = 0.07  # historical jse growth rate
+    discountRate: Ratio = 0.20
     declineRate: Ratio = 0.056  # inflation rate (CPI)
     taxRate: Ratio = 0.18  # fixed
     minMos: Ratio = 0.25  # margin of safety
@@ -408,6 +405,7 @@ class ValuationModel:
     minAltmanZScore: Ratio = 3.0
     minStatementYears: int = 3  # we extrapolate between statements so we'll need at least 2 yrs annual statements to be accurate and 3 yrs to be more accurate
     maxBlendedMultiplier: Ratio = 22.5
+    yearsForEarningsCalcs: int = 1
 
 
 @dataclass

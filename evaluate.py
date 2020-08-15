@@ -685,6 +685,10 @@ def getViability(valuation: Valuation, model: ValuationModel) -> bool:
     return True
 
 
+def getExpectedReturn(valuation: Valuation, currentPrice: Currency) -> Currency:
+    return 100 * (currentPrice - valuation.fairValue) / valuation.fairValue
+
+
 def getInstruction(
     valuation: Valuation, currentPrice: Currency, model: ValuationModel
 ) -> str:
@@ -708,6 +712,7 @@ def evaluate(stock: Stock) -> Valuation:
 
     # evaluate/assess the valuation
     valuation.fairValue = getFairValue(valuation)
+    valuation.expectedReturn = getExpectedReturn(valuation, stock.currentPrice)
     valuation.instruction = getInstruction(valuation, stock.currentPrice, model)
 
     return valuation

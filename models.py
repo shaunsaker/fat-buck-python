@@ -376,6 +376,7 @@ class Valuation:
     altmanZScore: Ratio = 0.00
     statementYears: int = 0
     fairValue: Currency = 0.00
+    expectedReturn: int = 0
     instruction: str = ""
 
     def __getitem__(self, key):

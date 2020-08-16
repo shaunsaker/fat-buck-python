@@ -63,6 +63,12 @@ for symbolData in exchangeSymbols:
         # get the latest price
         stock = fetchLatestPrice(stock, exchange)
 
+        # if there is no price or the price is 0, remove the stock
+        if not stock.currentPrice:
+            removeStock(stockRef, symbol)
+
+            continue
+
         # get and merge the latest financial statements
         latestFinancialStatements = fetchLatestFinancialStatements(symbol)
 

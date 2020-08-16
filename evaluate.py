@@ -686,7 +686,7 @@ def getViability(valuation: Valuation, model: ValuationModel) -> bool:
 
 
 def getExpectedReturn(valuation: Valuation, currentPrice: Currency) -> Currency:
-    return 100 * (currentPrice - valuation.fairValue) / valuation.fairValue
+    return 100 * (valuation.fairValue - currentPrice) / currentPrice
 
 
 def getInstruction(

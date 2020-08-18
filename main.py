@@ -62,8 +62,8 @@ for symbolData in exchangeSymbols:
 
             continue
 
-        # replace any None values with 0 (lord knows how they got in there, probably my spaghetti code)
-        recursiveReplacer(stockData, None, 0)
+        # replace any None, NaN values with 0 (lord knows how they got in there, probably my spaghetti code)
+        recursiveReplacer(stockData, [None, "NaN"], 0)
 
         stock = typedload.load(stockData, Stock)
 

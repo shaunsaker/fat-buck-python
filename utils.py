@@ -154,12 +154,12 @@ def getLargest(a, b):
     return a
 
 
-def recursiveReplacer(thing, target, replace):
+def recursiveReplacer(thing, targets, replace):
     for key in thing:
-        if thing[key] == target:
+        if thing[key] in targets:
             thing[key] = replace
         elif isinstance(thing[key], dict):
-            recursiveReplacer(thing[key], target, replace)
+            recursiveReplacer(thing[key], targets, replace)
 
 
 def getNumberOfSymbolsToProcess(_exchanges):

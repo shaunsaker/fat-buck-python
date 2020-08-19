@@ -5,7 +5,7 @@ import typedload
 from alive_progress import alive_bar
 from firebase import db
 from utils import (
-    recursiveReplacer,
+    falsyToInt,
     getNumberOfSymbolsToProcess,
     dateToDateString,
 )
@@ -63,7 +63,7 @@ for symbolData in exchangeSymbols:
             continue
 
         # replace any None, NaN values with 0 (lord knows how they got in there, probably my spaghetti code)
-        recursiveReplacer(stockData, [None, "NaN"], 0)
+        stockData = falsyToInt(stockData)
 
         stock = typedload.load(stockData, Stock)
 

@@ -154,12 +154,43 @@ def getLargest(a, b):
     return a
 
 
-def recursiveReplacer(thing, targets, replace):
-    for key in thing:
-        if thing[key] in targets:
-            thing[key] = replace
-        elif isinstance(thing[key], dict):
-            recursiveReplacer(thing[key], targets, replace)
+# replace all falsy, non-string values in a nested dict 0
+def falsyToInt(obj):
+    cleanObj = {}
+
+    for key in obj:
+        field = obj[key]
+        # print(f"processing {key} with type: {type(field)} and value: {field}")
+
+        if isinstance(field, list):
+            cleanList = []
+
+            for item in field:
+                cleanItem = falsyToInt(item)
+                cleanList.append(cleanItem)
+
+            cleanObj[key] = cleanList
+
+        elif isinstance(field, dict):
+            cleanObj[key] = falsyToInt(field)
+
+        elif isinstance(field, str):
+            cleanObj[key] = field
+
+        elif isinstance(field, bool):
+            cleanObj[key] = field
+
+        else:
+            # its an int/float, attempt to parse it
+            # if we can't parse it, convert it to 0
+            try:
+                int(field)
+                cleanObj[key] = field
+            except:
+                # print(f"Found unparseable int/float at {key}.")
+                cleanObj[key] = 0
+
+    return cleanObj
 
 
 def getNumberOfSymbolsToProcess(_exchanges):

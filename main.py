@@ -68,8 +68,8 @@ for symbolData in exchangeSymbols:
         stock = typedload.load(stockData, Stock)
 
         # don't process stocks that have already been updated today
-        if not targetSymbol and stock.lastUpdated == today:
-            continue
+        # if not targetSymbol and stock.lastUpdated == today:
+        #     continue
 
         try:
             # get the latest price
@@ -134,6 +134,10 @@ for symbolData in exchangeSymbols:
         )
 
         stockRef.set(stockJson, merge=True)
+
+        # print(
+        #     f"{symbol} has instruction: {stock.valuation.instruction} with expected return of: {stock.valuation.expectedReturn}. The current price is {stock.currentPrice} and we value the stock at {stock.valuation.fairValue}."
+        # )
 
         if targetSymbol:
             break

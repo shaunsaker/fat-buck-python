@@ -608,48 +608,61 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     statementYears = getStatementYears(stock)
 
     valuation = Valuation()
-    valuation.dividendYield = dividendYield
-    valuation.marketCap = marketCap
-    valuation.roe = avgRoe
-    valuation.roa = avgRoa
-    valuation.growthRate = growthRate
-    valuation.priceGrowthRate = getPriceGrowthRate(stock)
-    currentLiabilities = latestBalanceSheet.currentLiabilities
-    valuation.dte = getDte(currentLiabilities, equity)
-    valuation.cr = getCr(latestBalanceSheet.currentAssets, currentLiabilities)
-    valuation.eps = eps
-    valuation.pe = pe
-    valuation.peg = getPeg(pe, growthRate)
-    pb = getPb(stock.currentPrice, equity, stock.sharesOutstanding)
-    valuation.pb = pb
-    valuation.blendedMultiplier = pe * pb
-    valuation.fcf = fcf
-    valuation.peMultipleIv = getPeMultipleIv(eps, pe, growthRate, model.discountRate)
-    valuation.grahamIv = getGrahamIv(eps, growthRate, model.discountRate)
-    valuation.dcfIv = getDcfIv(
-        fcf,
-        latestBalanceSheet.cash,
-        currentLiabilities,
-        stock.sharesOutstanding,
-        growthRate,
-        model.declineRate,
-        model.discountRate,
+    valuation.dividendYield = round(dividendYield, 2)
+    valuation.marketCap = round(marketCap, 2)
+    valuation.roe = round(avgRoe, 2)
+    valuation.roa = round(avgRoa, 2)
+    valuation.growthRate = round(growthRate, 2)
+    valuation.priceGrowthRate = round(getPriceGrowthRate(stock), 2)
+    currentLiabilities = round(latestBalanceSheet.currentLiabilities, 2)
+    valuation.dte = round(getDte(currentLiabilities, equity), 2)
+    valuation.cr = round(getCr(latestBalanceSheet.currentAssets, currentLiabilities), 2)
+    valuation.eps = round(eps, 2)
+    valuation.pe = round(pe, 2)
+    valuation.peg = round(getPeg(pe, growthRate), 2)
+    pb = round(getPb(stock.currentPrice, equity, stock.sharesOutstanding), 2)
+    valuation.pb = round(pb, 2)
+    valuation.blendedMultiplier = round(pe * pb, 2)
+    valuation.fcf = round(fcf, 2)
+    valuation.peMultipleIv = round(
+        getPeMultipleIv(eps, pe, growthRate, model.discountRate), 2
     )
-    valuation.roeIv = getRoeIv(
-        equity,
-        avgRoe,
-        stock.sharesOutstanding,
-        dividendYield,
-        growthRate,
-        model.discountRate,
+    valuation.grahamIv = round(getGrahamIv(eps, growthRate, model.discountRate), 2)
+    valuation.dcfIv = round(
+        getDcfIv(
+            fcf,
+            latestBalanceSheet.cash,
+            currentLiabilities,
+            stock.sharesOutstanding,
+            growthRate,
+            model.declineRate,
+            model.discountRate,
+        ),
+        2,
     )
-    valuation.liquidationIv = getLiquidationIv(equity, stock.sharesOutstanding)
-    valuation.altmanZScore = getAltmanZScore(
-        assets,
-        liabilities,
-        latestBalanceSheet.retainedEarnings,
-        earningsBeforeInterestAndTax,
-        totalRevenue,
+    valuation.roeIv = round(
+        getRoeIv(
+            equity,
+            avgRoe,
+            stock.sharesOutstanding,
+            dividendYield,
+            growthRate,
+            model.discountRate,
+        ),
+        2,
+    )
+    valuation.liquidationIv = round(
+        getLiquidationIv(equity, stock.sharesOutstanding), 2
+    )
+    valuation.altmanZScore = round(
+        getAltmanZScore(
+            assets,
+            liabilities,
+            latestBalanceSheet.retainedEarnings,
+            earningsBeforeInterestAndTax,
+            totalRevenue,
+        ),
+        2,
     )
     valuation.statementYears = statementYears
 
@@ -686,7 +699,7 @@ def getViability(valuation: Valuation, model: ValuationModel) -> bool:
 
 
 def getExpectedReturn(valuation: Valuation, currentPrice: Currency) -> Currency:
-    return 100 * (valuation.fairValue - currentPrice) / currentPrice
+    return round(100 * (valuation.fairValue - currentPrice) / currentPrice, 2)
 
 
 def getInstruction(
@@ -704,6 +717,15 @@ def getInstruction(
         return "HOLD"
 
 
+def getHealth(valuation: Valuation) -> str:
+    if valuation.altmanZScore < 1.8:
+        return "DYING"
+    elif valuation.altmanZScore >= 3.0:
+        return "HEALTHY"
+    else:
+        return "AVERAGE"
+
+
 def evaluate(stock: Stock) -> Valuation:
     model = ValuationModel()
 
@@ -714,6 +736,7 @@ def evaluate(stock: Stock) -> Valuation:
     valuation.fairValue = getFairValue(valuation)
     valuation.expectedReturn = getExpectedReturn(valuation, stock.currentPrice)
     valuation.instruction = getInstruction(valuation, stock.currentPrice, model)
+    valuation.health = getHealth(valuation)
 
     return valuation
 

@@ -25,7 +25,7 @@ def getHistoricalIncomeStatementsByCycleType(
         )
 
         # we don't want discontinued operations profits to affect our valuation
-        # let's aviod it and use net income from continuous ops instead
+        # let's avoid it and use net income from continuous ops instead
         if (
             historicalIncomeStatement.discontinuedOperations
             > historicalIncomeStatement.netIncome

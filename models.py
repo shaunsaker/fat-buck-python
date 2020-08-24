@@ -132,6 +132,8 @@ class IncomeStatement:
     interestIncome: Currency = 0.00
     interestExpense: Currency = 0.00
     estimate: bool = False  # it may be extrapolated data
+    source: str = ""  # historical or yahoo
+    dateAdded: str = ""  # 20-08-2020
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -146,6 +148,8 @@ class BalanceSheet:
     retainedEarnings: Currency = 0.00
     cash: Currency = 0.00
     estimate: bool = False
+    source: str = ""  # historical or yahoo
+    dateAdded: str = ""  # 20-08-2020
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -157,6 +161,8 @@ class CashFlowStatement:
     cashFromOperations: Currency = 0.00
     capex: Currency = 0.00
     estimate: bool = False
+    source: str = ""  # historical or yahoo
+    dateAdded: str = ""  # 20-08-2020
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -378,6 +384,7 @@ class Valuation:
     fairValue: Currency = 0.00
     expectedReturn: int = 0
     instruction: str = ""
+    health: str = ""
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -393,20 +400,20 @@ class ValuationModel:
     topUp: Currency = 1000.00
     buyLimit: Currency = 1000.00
     startDate: str = ""
-    minRoe: Ratio = 0.15
+    minRoe: Ratio = 0.10
     minRoa: Ratio = 0.02
     minGrowthRate: Ratio = 0.03
-    maxPriceGrowthRate: Ratio = 0.00  # must be negative (it's currently unloved)
+    # maxPriceGrowthRate: Ratio = 0.00  # must be negative (it's currently unloved)
     maxDte: Ratio = 0.5
     minCr: Ratio = 2.0
     minEps: Currency = 0.00  # must at least be positive
     maxPe: Ratio = 25.0
     maxPeg: Ratio = 1.0
     maxPb: Ratio = 1.0
-    minAltmanZScore: Ratio = 3.0
+    minAltmanZScore: Ratio = 1.8  # absolute minimum (3.0 is great but we're lowering our standards as a test)
     minStatementYears: int = 3  # we extrapolate between statements so we'll need at least 2 yrs annual statements to be accurate and 3 yrs to be more accurate
     maxBlendedMultiplier: Ratio = 22.5
-    yearsForEarningsCalcs: int = 1
+    yearsForEarningsCalcs: int = 3
 
 
 @dataclass

@@ -22,10 +22,13 @@ def getFinancialStatementsFromDataFrame(dataframe):
     except:
         return financialStatements
 
+    financialStatements = utils.falsyToInt(financialStatements)
+
     return financialStatements
 
 
 def fetchLatestFinancialStatements(symbol: Symbol) -> YahooQueryFinancialStatements:
+    # fetches the latest quarterly and yearly financial statements
     data: YahooQueryTickerData = Ticker(symbol)
 
     quarterlyIncomeStatements = {}

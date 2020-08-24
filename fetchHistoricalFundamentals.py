@@ -27,6 +27,9 @@ def fetchHistoricalFundamentals(
             jsonString = json.dumps(data, default=lambda o: o.__dict__, indent=2)
             file.write(jsonString)
 
+    if not data:
+        return None
+
     data = utils.falsyToInt(data)
     fundamentals = typedload.load(data, HistoricalFundamentals)
 

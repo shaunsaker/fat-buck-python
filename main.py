@@ -27,10 +27,12 @@ argParser = argparse.ArgumentParser()
 argParser.add_argument("--exchange", type=str)
 argParser.add_argument("--symbol", type=str)
 argParser.add_argument("--freshy", type=bool)
+argParser.add_argument("--unprocessed", type=bool)
 args = argParser.parse_known_args()
 exchange = args[0].exchange
 targetSymbol = args[0].symbol
 freshy = args[0].freshy
+unprocessed = args[0].unprocessed
 
 today = dateToDateString(datetime.now())
 
@@ -84,8 +86,8 @@ for symbolData in exchangeSymbols:
             stock = typedload.load(stockData, Stock)
 
         # don't process stocks that have already been updated today
-        # if not freshy and stock.lastUpdated == today:
-        #     continue
+        if unprocessed and stock.lastUpdated == today:
+            continue
 
         # get the latest shares outstanding
         sharesOutstanding = fetchSharesOutstanding(symbol)
@@ -136,6 +138,16 @@ for symbolData in exchangeSymbols:
         if freshy:
             # merge the historical
             historicalFundamentals = fetchHistoricalFundamentals(symbol, exchange)
+
+            if not historicalFundamentals:
+                print("No historical financial statements.")
+                removeStock(stockRef, symbol)
+
+                if targetSymbol:
+                    break
+
+                continue
+
             historicalFinancialStatements = makeHistoricalFinancialStatements(
                 historicalFundamentals
             )

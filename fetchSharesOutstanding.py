@@ -7,7 +7,11 @@ def fetchSharesOutstanding(symbol: Symbol) -> Shares:
     data: YahooQueryTickerData = Ticker(symbol)
     keyStatsData = data.key_stats[symbol]
 
-    if "No fundamentals data" in keyStatsData or "Quote not found" in keyStatsData:
+    if (
+        "No fundamentals data" in keyStatsData
+        or "Quote not found" in keyStatsData
+        or "sharesOutstanding" not in keyStatsData
+    ):
         return None
 
     sharesOutstandingString = keyStatsData["sharesOutstanding"]

@@ -1,11 +1,15 @@
 from yahooquery import Ticker
 import utils
-from models import HistoricalPrice, HistoricalPricing, YahooQueryTickerData
+from models import (
+    HistoricalPrice,
+    HistoricalPricing,
+    YahooQueryTickerData,
+)
 
 
 def fetchHistoricalPricing(symbol: str) -> HistoricalPricing:
     data: YahooQueryTickerData = Ticker(symbol)
-    priceHistoryDf = data.history(period="2y")
+    priceHistoryDf = data.history(period="1y")
     historicalPricing = {}
 
     for index, row in priceHistoryDf.iterrows():

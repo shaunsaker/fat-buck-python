@@ -27,10 +27,11 @@ def fetchHistoricalFundamentals(
             jsonString = json.dumps(data, default=lambda o: o.__dict__, indent=2)
             file.write(jsonString)
 
-    if not data:
+    if not data or "Financials" not in data:
         return None
 
     data = utils.falsyToInt(data)
+
     fundamentals = typedload.load(data, HistoricalFundamentals)
 
     if not data or "Financials" not in data:

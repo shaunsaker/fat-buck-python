@@ -25,9 +25,9 @@ from evaluate import evaluate
 
 argParser = argparse.ArgumentParser()
 argParser.add_argument("--exchange", type=str)
-argParser.add_argument("--symbol", type=str)
-argParser.add_argument("--freshy", type=bool)
-argParser.add_argument("--unprocessed", type=bool)
+argParser.add_argument("--symbol", type=str, default="")
+argParser.add_argument("--freshy", type=bool, default=False)
+argParser.add_argument("--unprocessed", type=bool, default=False)
 args = argParser.parse_known_args()
 exchange = args[0].exchange
 targetSymbol = args[0].symbol
@@ -159,6 +159,7 @@ for symbolData in exchangeSymbols:
             financialStatements = makeFinancialStatements(
                 financialStatements, latestFinancialStatements
             )
+
         else:
             financialStatements = makeFinancialStatements(
                 stock.financialStatements, latestFinancialStatements
@@ -196,15 +197,6 @@ for symbolData in exchangeSymbols:
 
         # evaluate the stock
         stock.valuation = evaluate(stock)
-
-        # if not stock.valuation.fairValue:
-        #     print("No fair value.")
-        #     removeStock(stockRef, symbol)
-
-        #     if targetSymbol:
-        #         break
-
-        #     continue
 
         # add the last updated date
         stock.lastUpdated = today

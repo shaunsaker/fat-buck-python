@@ -195,4 +195,4 @@ else:
             f"Updating {exchangeName}: {symbol}, {symbolCount} of {len(exchangeSymbols)}..."
         )
 
-        processStock(symbol, isLoop)
+        processStock(symbol)

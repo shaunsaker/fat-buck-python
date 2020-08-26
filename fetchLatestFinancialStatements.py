@@ -18,7 +18,10 @@ def getFinancialStatementsFromDataFrame(dataframe):
         for _, row in dataframe.iterrows():
             dateString: Date = utils.pandasDateToDateString(row["asOfDate"], True)
             rowData = row.to_dict()
-            financialStatements[dateString] = rowData
+
+            # unfortunately TTM statements are inaccurate (US/ACB), we want actual statements
+            if rowData["periodType"] != "TTM":
+                financialStatements[dateString] = rowData
     except:
         return financialStatements
 

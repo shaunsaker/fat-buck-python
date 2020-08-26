@@ -5,7 +5,12 @@ from models import Symbol, Shares, YahooQueryTickerData
 
 def fetchSharesOutstanding(symbol: Symbol) -> Shares:
     data: YahooQueryTickerData = Ticker(symbol)
-    keyStatsData = data.key_stats[symbol]
+
+    # sometimes the symbol is not in key_stats?
+    try:
+        keyStatsData = data.key_stats[symbol]
+    except:
+        return None
 
     if (
         "No fundamentals data" in keyStatsData

@@ -64,37 +64,6 @@ def safeOpenWrite(path):
     return open(path, "w")
 
 
-def mergeIncomeStatements(a: IncomeStatement, b: IncomeStatement) -> IncomeStatement:
-    return IncomeStatement(
-        totalRevenue=a.totalRevenue or b.totalRevenue,
-        netIncome=a.netIncome or b.netIncome,
-        incomeBeforeTax=a.incomeBeforeTax or b.incomeBeforeTax,
-        interestIncome=a.interestIncome or b.interestIncome,
-        interestExpense=a.interestExpense or b.interestExpense,
-    )
-
-
-def mergeBalanceSheets(a: BalanceSheet, b: BalanceSheet) -> BalanceSheet:
-    return BalanceSheet(
-        assets=a.assets or b.assets,
-        currentAssets=a.currentAssets or b.currentAssets,
-        liabilities=a.liabilities or b.liabilities,
-        currentLiabilities=a.currentLiabilities or b.currentLiabilities,
-        retainedEarnings=a.retainedEarnings or b.retainedEarnings,
-        cash=a.cash or b.cash,
-    )
-
-
-def mergeCashFlowStatements(
-    a: CashFlowStatement, b: CashFlowStatement
-) -> CashFlowStatement:
-    return CashFlowStatement(
-        dividendsPaid=a.dividendsPaid or b.dividendsPaid,
-        cashFromOperations=a.cashFromOperations or b.cashFromOperations,
-        capex=a.capex or b.capex,
-    )
-
-
 def fileExists(path: str) -> bool:
     return os.path.isfile(path)
 

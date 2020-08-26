@@ -115,17 +115,54 @@ def getTrendEstimate(statements, key, index, previousStatement):
     return estimatedValue
 
 
+def mergeIncomeStatements(a: IncomeStatement, b: IncomeStatement) -> IncomeStatement:
+    return IncomeStatement(
+        totalRevenue=a.totalRevenue or b.totalRevenue,
+        netIncome=a.netIncome or b.netIncome,
+        incomeBeforeTax=a.incomeBeforeTax or b.incomeBeforeTax,
+        interestIncome=a.interestIncome or b.interestIncome,
+        interestExpense=a.interestExpense or b.interestExpense,
+        estimate=a.estimate or b.estimate,
+        source=a.source or b.source,
+    )
+
+
+def mergeBalanceSheets(a: BalanceSheet, b: BalanceSheet) -> BalanceSheet:
+    return BalanceSheet(
+        assets=a.assets or b.assets,
+        currentAssets=a.currentAssets or b.currentAssets,
+        liabilities=a.liabilities or b.liabilities,
+        currentLiabilities=a.currentLiabilities or b.currentLiabilities,
+        retainedEarnings=a.retainedEarnings or b.retainedEarnings,
+        cash=a.cash or b.cash,
+        estimate=a.estimate or b.estimate,
+        source=a.source or b.source,
+    )
+
+
+def mergeCashFlowStatements(
+    a: CashFlowStatement, b: CashFlowStatement
+) -> CashFlowStatement:
+    return CashFlowStatement(
+        dividendsPaid=a.dividendsPaid or b.dividendsPaid,
+        cashFromOperations=a.cashFromOperations or b.cashFromOperations,
+        capex=a.capex or b.capex,
+        estimate=a.estimate or b.estimate,
+        source=a.source or b.source,
+    )
+
+
 def getMergedStatements(
     dates, latestStatements, existingStatements, statementType, factory, merger,
 ):
+    # TODO: this is not preserving our estimate, source and dateAdded fields
+    # TODO: it should also prefer actual over estimates
     mergedStatements = {}
 
     for date in dates:
         latestStatement = (
             date in latestStatements and latestStatements[date] or factory
         )  # could be quarterly or yearly
-
-        latestStatement.dateAdded = utils.dateToDateString(datetime.now())
 
         if statementType == "yearly":
             # reduce the values to 1/4 to represent their quarterly values
@@ -135,9 +172,9 @@ def getMergedStatements(
 
         existingStatement = (
             date in existingStatements[statementType]
+            and not existingStatements[statementType][date].estimate
             and existingStatements[statementType][date]
-            or factory
-        )  # is always quarterly
+        ) or factory  # is always quarterly, don't use estimates (we want to extrapolate new values instead)
         mergedStatement = merger(latestStatement, existingStatement)
         mergedStatements[date] = mergedStatement
 
@@ -201,7 +238,7 @@ def makeFinancialStatements(
         existingStatements,
         "incomeStatements",
         IncomeStatement(),
-        utils.mergeIncomeStatements,
+        mergeIncomeStatements,
     )
     mergedYearlyIncomeStatements = getMergedStatements(
         quarterlyDates,
@@ -209,7 +246,7 @@ def makeFinancialStatements(
         existingStatements,
         "incomeStatements",
         IncomeStatement(),
-        utils.mergeIncomeStatements,
+        mergeIncomeStatements,
     )
     mergedQuarterlyBalanceSheets = getMergedStatements(
         quarterlyDates,
@@ -217,7 +254,7 @@ def makeFinancialStatements(
         existingStatements,
         "balanceSheets",
         BalanceSheet(),
-        utils.mergeBalanceSheets,
+        mergeBalanceSheets,
     )
     mergedYearlyBalanceSheets = getMergedStatements(
         quarterlyDates,
@@ -225,7 +262,7 @@ def makeFinancialStatements(
         existingStatements,
         "balanceSheets",
         BalanceSheet(),
-        utils.mergeBalanceSheets,
+        mergeBalanceSheets,
     )
     mergedQuarterlyCashFlowStatements = getMergedStatements(
         quarterlyDates,
@@ -233,7 +270,7 @@ def makeFinancialStatements(
         existingStatements,
         "cashFlowStatements",
         CashFlowStatement(),
-        utils.mergeCashFlowStatements,
+        mergeCashFlowStatements,
     )
     mergedYearlyCashFlowStatements = getMergedStatements(
         quarterlyDates,
@@ -241,7 +278,7 @@ def makeFinancialStatements(
         existingStatements,
         "cashFlowStatements",
         CashFlowStatement(),
-        utils.mergeCashFlowStatements,
+        mergeCashFlowStatements,
     )
 
     incomeStatements = {}
@@ -249,9 +286,8 @@ def makeFinancialStatements(
         quarterlyStatement = mergedQuarterlyIncomeStatements[date]
 
         # if we have a quarterly statement add it
-        if not isIncomeStatementEmptyOrInvalid(
-            quarterlyStatement
-        ):  # TODO if its not empty and has our required values
+        if not isIncomeStatementEmptyOrInvalid(quarterlyStatement):
+            quarterlyStatement.source = "actual"
             incomeStatements[date] = quarterlyStatement
 
         # if the quarterlyStatement is empty, we need to try and get the values from the yearlyStatement on this date
@@ -270,6 +306,8 @@ def makeFinancialStatements(
                     incomeBeforeTax=incomeBeforeTax,
                     interestIncome=interestIncome,
                     interestExpense=interestExpense,
+                    source="yearly",
+                    estimate=False,
                 )
                 incomeStatements[date] = estimatedStatement
             else:
@@ -317,6 +355,7 @@ def makeFinancialStatements(
                     incomeBeforeTax=incomeBeforeTax,
                     interestExpense=interestExpense,
                     interestIncome=interestIncome,
+                    source="extrapolated",
                     estimate=True,
                 )
                 incomeStatements[date] = incomeStatement
@@ -344,6 +383,7 @@ def makeFinancialStatements(
                     incomeBeforeTax=incomeBeforeTax,
                     interestExpense=interestExpense,
                     interestIncome=interestIncome,
+                    source="trend",
                     estimate=True,
                 )
                 incomeStatements[date] = incomeStatement
@@ -354,6 +394,7 @@ def makeFinancialStatements(
 
         # if we have a quarterly statement add it
         if not isBalanceSheetEmptyOrInvalid(quarterlyStatement):
+            quarterlyStatement.source = "actual"
             balanceSheets[date] = quarterlyStatement
 
         # if the quarterlyStatement is empty, we need to try and get the values from the yearlyStatement on this date
@@ -375,6 +416,8 @@ def makeFinancialStatements(
                     currentLiabilities=currentLiabilities,
                     retainedEarnings=retainedEarnings,
                     cash=cash,
+                    source="yearly",
+                    estimate=False,
                 )
                 balanceSheets[date] = estimatedStatement
             else:
@@ -424,6 +467,7 @@ def makeFinancialStatements(
                     currentLiabilities=currentLiabilities,
                     retainedEarnings=retainedEarnings,
                     cash=cash,
+                    source="extrapolated",
                     estimate=True,
                 )
                 balanceSheets[date] = balanceSheet
@@ -451,6 +495,7 @@ def makeFinancialStatements(
                     currentLiabilities=currentLiabilities,
                     retainedEarnings=retainedEarnings,
                     cash=cash,
+                    source="trend",
                     estimate=True,
                 )
                 balanceSheets[date] = balanceSheet
@@ -461,6 +506,7 @@ def makeFinancialStatements(
 
         # if we have a quarterly statement add it
         if not isCashFlowStatementEmptyOrInvalid(quarterlyStatement):
+            quarterlyStatement.source = "actual"
             cashFlowStatements[date] = quarterlyStatement
 
         # if the quarterlyStatement is empty, we need to try and get the values from the yearlyStatement on this date
@@ -477,6 +523,8 @@ def makeFinancialStatements(
                     dividendsPaid=dividendsPaid,
                     cashFromOperations=cashFromOperations,
                     capex=capex,
+                    source="yearly",
+                    estimate=False,
                 )
                 cashFlowStatements[date] = estimatedStatement
             else:
@@ -518,6 +566,7 @@ def makeFinancialStatements(
                     dividendsPaid=dividendsPaid,
                     cashFromOperations=cashFromOperations,
                     capex=capex,
+                    source="extrapolated",
                     estimate=True,
                 )
                 cashFlowStatements[date] = cashFlowStatement
@@ -537,6 +586,7 @@ def makeFinancialStatements(
                     dividendsPaid=dividendsPaid,
                     cashFromOperations=cashFromOperations,
                     capex=capex,
+                    source="trend",
                     estimate=True,
                 )
                 cashFlowStatements[date] = cashFlowStatement

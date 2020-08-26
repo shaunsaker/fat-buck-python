@@ -135,7 +135,7 @@ def getHistoricalValuesFromFinancialStatements(
             historicalValue = float(value)
             historicalValues.append({"date": date, "value": historicalValue})
 
-    if not len(historicalValues):
+    if len(historicalValues) <= 1:
         return historicalValues
 
     # get the correct asc sorting
@@ -554,7 +554,7 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     fcf = getFcfForYear(stock)
     marketCap = getMarketCap(stock.sharesOutstanding, stock.currentPrice)
     eps = getEps(netIncomeAvg, stock.sharesOutstanding)
-    pe = getPe(stock.currentPrice, netIncomeAvg)
+    pe = getPe(stock.currentPrice, eps)
     growthRate = getValueGrowthRate(
         stock, "incomeStatements", "netIncome", model.yearsForEarningsCalcs * 4
     ) * (1 - model.minMos)

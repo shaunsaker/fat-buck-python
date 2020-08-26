@@ -101,7 +101,7 @@ def processStock(symbol):
     yahooStatements = fetchLatestFinancialStatements(symbol)
 
     # if latest statements are empty
-    if yahooStatements.incomeStatements.quarterly == {}:
+    if yahooStatements.incomeStatements.yearly == {}:
         print("No latest financial statements.")
         removeStock(stockRef, symbol)
         return

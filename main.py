@@ -114,7 +114,10 @@ def processStock(symbol):
         # merge the historical
         historicalFundamentals = fetchHistoricalFundamentals(symbol, exchange)
 
-        if not historicalFundamentals:
+        if (
+            not historicalFundamentals
+            or historicalFundamentals.Financials.Income_Statement.yearly == {}
+        ):
             print("No historical financial statements.")
             removeStock(stockRef, symbol)
             return

@@ -15,6 +15,8 @@ from models import (
 import utils
 from evaluate import getHistoricalValuesFromFinancialStatements, getGrowthRate
 from datetime import datetime
+import numpy as np
+import matplotlib.dates as mdates
 
 
 def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
@@ -48,71 +50,42 @@ def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
     return quarterlyDates
 
 
-def getPreviousStatement(startIndex, dates, statements, factory):
-    if startIndex < 0:
-        return None
-
-    newStartIndex = startIndex - 1
-    previousDate = dates[newStartIndex]
-
-    if not previousDate or previousDate not in statements:
-        return None
-
-    if statements[previousDate] != factory:
-        previousStatement = statements[previousDate]
-
-        return {
-            "statement": previousStatement,
-            "date": previousDate,
-            "index": newStartIndex,
-        }
-
-    return getPreviousStatement(newStartIndex, dates, statements, factory)
-
-
-def getNextStatement(
-    startIndex, dates, statements, factory,
+def getTrendEstimateForDate(
+    statements, key, factory, date, shouldUseZeroValues=False,
 ):
-    if startIndex >= len(dates) - 1:
-        return None
+    # filter out empty statements and 0 values if not shouldUseZeroValues
+    nonEmptyStatements = {}
+    for date in statements:
+        statement = statements[date]
+        value = statement[key]
+        if (
+            statement != factory
+            and shouldUseZeroValues
+            or not shouldUseZeroValues
+            and value
+        ):
+            nonEmptyStatements[date] = statement
 
-    newStartIndex = startIndex + 1
-    nextDate = dates[newStartIndex]
-
-    if not nextDate or nextDate not in statements:
-        return None
-
-    if statements[nextDate] != factory:
-        nextStatement = statements[nextDate]
-
-        return {"statement": nextStatement, "date": nextDate, "index": newStartIndex}
-
-    return getNextStatement(newStartIndex, dates, statements, factory)
-
-
-def getExtrapolatedEstimate(key, nextStatement, previousStatement):
-    return round(
-        previousStatement["statement"][key]
-        + (nextStatement["statement"][key] - previousStatement["statement"][key])
-        / (nextStatement["index"] - previousStatement["index"]),
-        2,
+    historicalValues = getHistoricalValuesFromFinancialStatements(
+        nonEmptyStatements, key
     )
 
+    if len(historicalValues) == 0:
+        return 0
 
-def getTrendEstimate(statements, key, index, previousStatement):
-    historicalValues = getHistoricalValuesFromFinancialStatements(statements, key)
-    values = []
-    for item in historicalValues:
-        values.append(item["value"])
+    y = np.array([item["value"] for item in historicalValues])
 
-    growthRate = getGrowthRate(values)
+    # extract and convert date strings to numbers
+    dates = [item["date"] for item in historicalValues]
+    x = np.array(mdates.datestr2num(dates))
 
-    # using the previous value, estimate this value using growth rate
-    previousValue = previousStatement["statement"][key]
-    noOfCycles = index - previousStatement["index"]
-    estimatedValue = round(previousValue + (previousValue * growthRate * noOfCycles), 2)
+    # machine learning!
+    model = np.polyfit(x, y, 2)  # NOTE: 1 == linear, 2+ == polynomial
+    predict = np.poly1d(model)
+    predictionDate = mdates.datestr2num([date])[0]
+    prediction = predict(predictionDate)
 
-    return estimatedValue
+    return prediction
 
 
 def mergeIncomeStatements(a: IncomeStatement, b: IncomeStatement) -> IncomeStatement:
@@ -155,8 +128,6 @@ def mergeCashFlowStatements(
 def getMergedStatements(
     dates, latestStatements, existingStatements, statementType, factory, merger,
 ):
-    # TODO: this is not preserving our estimate, source and dateAdded fields
-    # TODO: it should also prefer actual over estimates
     mergedStatements = {}
 
     for date in dates:
@@ -185,13 +156,6 @@ def isIncomeStatementEmptyOrInvalid(incomeStatement: IncomeStatement) -> bool:
     if incomeStatement == IncomeStatement():
         return True
 
-    if (
-        not incomeStatement.totalRevenue
-        or not incomeStatement.netIncome
-        or not incomeStatement.incomeBeforeTax
-    ):
-        return True
-
     return False
 
 
@@ -199,23 +163,11 @@ def isBalanceSheetEmptyOrInvalid(balanceSheet: BalanceSheet) -> bool:
     if balanceSheet == BalanceSheet():
         return True
 
-    if (
-        not balanceSheet.assets
-        or not balanceSheet.currentAssets
-        or not balanceSheet.liabilities
-        or not balanceSheet.currentLiabilities
-        or not balanceSheet.cash
-    ):
-        return True
-
     return False
 
 
 def isCashFlowStatementEmptyOrInvalid(cashFlowStatement: CashFlowStatement) -> bool:
     if cashFlowStatement == CashFlowStatement():
-        return True
-
-    if not cashFlowStatement.cashFromOperations or not cashFlowStatement.capex:
         return True
 
     return False
@@ -240,6 +192,7 @@ def makeFinancialStatements(
         IncomeStatement(),
         mergeIncomeStatements,
     )
+
     mergedYearlyIncomeStatements = getMergedStatements(
         quarterlyDates,
         latestStatements.incomeStatements.yearly,
@@ -248,6 +201,7 @@ def makeFinancialStatements(
         IncomeStatement(),
         mergeIncomeStatements,
     )
+
     mergedQuarterlyBalanceSheets = getMergedStatements(
         quarterlyDates,
         latestStatements.balanceSheets.quarterly,
@@ -321,72 +275,32 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == IncomeStatement():
-
-            # find the previous statement and date
-            previousStatement = getPreviousStatement(
-                i, quarterlyDates, incomeStatements, IncomeStatement()
+            # TODO: should we limit it to the last few years?
+            totalRevenue = getTrendEstimateForDate(
+                incomeStatements, "totalRevenue", IncomeStatement(), date
             )
-
-            # find the next statement and date
-            nextStatement = getNextStatement(
-                i, quarterlyDates, incomeStatements, IncomeStatement()
+            netIncome = getTrendEstimateForDate(
+                incomeStatements, "netIncome", IncomeStatement(), date
             )
-
-            # calculate the relative value using the difference in values and the index of this statement
-            if previousStatement and nextStatement:
-                totalRevenue = getExtrapolatedEstimate(
-                    "totalRevenue", nextStatement, previousStatement
-                )
-                netIncome = getExtrapolatedEstimate(
-                    "netIncome", nextStatement, previousStatement
-                )
-                incomeBeforeTax = getExtrapolatedEstimate(
-                    "incomeBeforeTax", nextStatement, previousStatement
-                )
-                interestExpense = getExtrapolatedEstimate(
-                    "interestExpense", nextStatement, previousStatement
-                )
-                interestIncome = getExtrapolatedEstimate(
-                    "interestIncome", nextStatement, previousStatement
-                )
-                incomeStatement = IncomeStatement(
-                    totalRevenue=totalRevenue,
-                    netIncome=netIncome,
-                    incomeBeforeTax=incomeBeforeTax,
-                    interestExpense=interestExpense,
-                    interestIncome=interestIncome,
-                    source="extrapolated",
-                    estimate=True,
-                )
-                incomeStatements[date] = incomeStatement
-
-            elif previousStatement and not nextStatement:
-                # project by trending the previous values
-                totalRevenue = getTrendEstimate(
-                    incomeStatements, "totalRevenue", i, previousStatement
-                )
-                netIncome = getTrendEstimate(
-                    incomeStatements, "netIncome", i, previousStatement
-                )
-                incomeBeforeTax = getTrendEstimate(
-                    incomeStatements, "incomeBeforeTax", i, previousStatement
-                )
-                interestExpense = getTrendEstimate(
-                    incomeStatements, "interestExpense", i, previousStatement
-                )
-                interestIncome = getTrendEstimate(
-                    incomeStatements, "interestIncome", i, previousStatement
-                )
-                incomeStatement = IncomeStatement(
-                    totalRevenue=totalRevenue,
-                    netIncome=netIncome,
-                    incomeBeforeTax=incomeBeforeTax,
-                    interestExpense=interestExpense,
-                    interestIncome=interestIncome,
-                    source="trend",
-                    estimate=True,
-                )
-                incomeStatements[date] = incomeStatement
+            incomeBeforeTax = getTrendEstimateForDate(
+                incomeStatements, "incomeBeforeTax", IncomeStatement(), date
+            )
+            interestExpense = getTrendEstimateForDate(
+                incomeStatements, "interestExpense", IncomeStatement(), date
+            )
+            interestIncome = getTrendEstimateForDate(
+                incomeStatements, "interestIncome", IncomeStatement(), date
+            )
+            incomeStatement = IncomeStatement(
+                totalRevenue=totalRevenue,
+                netIncome=netIncome,
+                incomeBeforeTax=incomeBeforeTax,
+                interestExpense=interestExpense,
+                interestIncome=interestIncome,
+                source="trend",
+                estimate=True,
+            )
+            incomeStatements[date] = incomeStatement
 
     balanceSheets = {}
     for date in mergedQuarterlyBalanceSheets:
@@ -431,74 +345,33 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == BalanceSheet():
-
-            # find the previous statement and date
-            previousStatement = getPreviousStatement(
-                i, quarterlyDates, balanceSheets, BalanceSheet()
+            assets = getTrendEstimateForDate(
+                balanceSheets, "assets", BalanceSheet(), date
             )
-
-            # find the next statement and date
-            nextStatement = getNextStatement(
-                i, quarterlyDates, balanceSheets, BalanceSheet()
+            currentAssets = getTrendEstimateForDate(
+                balanceSheets, "currentAssets", BalanceSheet(), date
             )
-
-            # calculate the relative value using the difference in values and the index of this statement
-            if previousStatement and nextStatement:
-                assets = getExtrapolatedEstimate(
-                    "assets", nextStatement, previousStatement
-                )
-                currentAssets = getExtrapolatedEstimate(
-                    "currentAssets", nextStatement, previousStatement
-                )
-                liabilities = getExtrapolatedEstimate(
-                    "liabilities", nextStatement, previousStatement
-                )
-                retainedEarnings = getExtrapolatedEstimate(
-                    "retainedEarnings", nextStatement, previousStatement
-                )
-                currentLiabilities = getExtrapolatedEstimate(
-                    "currentLiabilities", nextStatement, previousStatement
-                )
-                cash = getExtrapolatedEstimate("cash", nextStatement, previousStatement)
-                balanceSheet = BalanceSheet(
-                    assets=assets,
-                    currentAssets=currentAssets,
-                    liabilities=liabilities,
-                    currentLiabilities=currentLiabilities,
-                    retainedEarnings=retainedEarnings,
-                    cash=cash,
-                    source="extrapolated",
-                    estimate=True,
-                )
-                balanceSheets[date] = balanceSheet
-
-            elif previousStatement and not nextStatement:
-                # project by trending the previous values
-                assets = getTrendEstimate(balanceSheets, "assets", i, previousStatement)
-                currentAssets = getTrendEstimate(
-                    balanceSheets, "currentAssets", i, previousStatement
-                )
-                liabilities = getTrendEstimate(
-                    balanceSheets, "liabilities", i, previousStatement
-                )
-                retainedEarnings = getTrendEstimate(
-                    balanceSheets, "retainedEarnings", i, previousStatement
-                )
-                currentLiabilities = getTrendEstimate(
-                    balanceSheets, "currentLiabilities", i, previousStatement
-                )
-                cash = getTrendEstimate(balanceSheets, "cash", i, previousStatement)
-                balanceSheet = BalanceSheet(
-                    assets=assets,
-                    currentAssets=currentAssets,
-                    liabilities=liabilities,
-                    currentLiabilities=currentLiabilities,
-                    retainedEarnings=retainedEarnings,
-                    cash=cash,
-                    source="trend",
-                    estimate=True,
-                )
-                balanceSheets[date] = balanceSheet
+            liabilities = getTrendEstimateForDate(
+                balanceSheets, "liabilities", BalanceSheet(), date
+            )
+            retainedEarnings = getTrendEstimateForDate(
+                balanceSheets, "retainedEarnings", BalanceSheet(), date
+            )
+            currentLiabilities = getTrendEstimateForDate(
+                balanceSheets, "currentLiabilities", BalanceSheet(), date
+            )
+            cash = getTrendEstimateForDate(balanceSheets, "cash", BalanceSheet(), date)
+            balanceSheet = BalanceSheet(
+                assets=assets,
+                currentAssets=currentAssets,
+                liabilities=liabilities,
+                currentLiabilities=currentLiabilities,
+                retainedEarnings=retainedEarnings,
+                cash=cash,
+                source="trend",
+                estimate=True,
+            )
+            balanceSheets[date] = balanceSheet
 
     cashFlowStatements = {}
     for date in mergedQuarterlyCashFlowStatements:
@@ -540,56 +413,23 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == CashFlowStatement():
-
-            # find the previous statement and date
-            previousStatement = getPreviousStatement(
-                i, quarterlyDates, cashFlowStatements, CashFlowStatement()
+            dividendsPaid = getTrendEstimateForDate(
+                cashFlowStatements, "dividendsPaid", CashFlowStatement(), date
             )
-
-            # find the next statement and date
-            nextStatement = getNextStatement(
-                i, quarterlyDates, cashFlowStatements, CashFlowStatement()
+            cashFromOperations = getTrendEstimateForDate(
+                cashFlowStatements, "cashFromOperations", CashFlowStatement(), date
             )
-
-            # calculate the relative value using the difference in values and the index of this statement
-            if previousStatement and nextStatement:
-                dividendsPaid = getExtrapolatedEstimate(
-                    "dividendsPaid", nextStatement, previousStatement
-                )
-                cashFromOperations = getExtrapolatedEstimate(
-                    "cashFromOperations", nextStatement, previousStatement
-                )
-                capex = getExtrapolatedEstimate(
-                    "capex", nextStatement, previousStatement
-                )
-                cashFlowStatement = CashFlowStatement(
-                    dividendsPaid=dividendsPaid,
-                    cashFromOperations=cashFromOperations,
-                    capex=capex,
-                    source="extrapolated",
-                    estimate=True,
-                )
-                cashFlowStatements[date] = cashFlowStatement
-
-            elif previousStatement and not nextStatement:
-                # project by trending the previous values
-                dividendsPaid = getTrendEstimate(
-                    cashFlowStatements, "dividendsPaid", i, previousStatement
-                )
-                cashFromOperations = getTrendEstimate(
-                    cashFlowStatements, "cashFromOperations", i, previousStatement
-                )
-                capex = getTrendEstimate(
-                    cashFlowStatements, "capex", i, previousStatement
-                )
-                cashFlowStatement = CashFlowStatement(
-                    dividendsPaid=dividendsPaid,
-                    cashFromOperations=cashFromOperations,
-                    capex=capex,
-                    source="trend",
-                    estimate=True,
-                )
-                cashFlowStatements[date] = cashFlowStatement
+            capex = getTrendEstimateForDate(
+                cashFlowStatements, "capex", CashFlowStatement(), date
+            )
+            cashFlowStatement = CashFlowStatement(
+                dividendsPaid=dividendsPaid,
+                cashFromOperations=cashFromOperations,
+                capex=capex,
+                source="trend",
+                estimate=True,
+            )
+            cashFlowStatements[date] = cashFlowStatement
 
     financialStatements = FinancialStatements(
         incomeStatements=incomeStatements,

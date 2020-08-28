@@ -125,6 +125,7 @@ def processStock(symbol):
         historicalFinancialStatements = makeHistoricalFinancialStatements(
             historicalFundamentals
         )
+
         financialStatements = makeFinancialStatements(
             FinancialStatements(), historicalFinancialStatements
         )

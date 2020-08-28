@@ -70,7 +70,7 @@ def getTrendEstimateForDate(
         nonEmptyStatements, key
     )
 
-    if len(historicalValues) == 0:
+    if len(historicalValues) <= 1:
         return 0
 
     y = np.array([item["value"] for item in historicalValues])
@@ -82,7 +82,7 @@ def getTrendEstimateForDate(
     # machine learning!
     order = (
         2 if len(historicalValues) > 2 else 1
-    )  # polynomial regression doesn't work accurately with 2 values
+    )  # polynomial regression doesn't work accurately with <= 2 values
     model = np.polyfit(x, y, order)  # NOTE: 1 == linear, 2+ == polynomial
     predict = np.poly1d(model)
     predictionDate = mdates.datestr2num([date])[0]

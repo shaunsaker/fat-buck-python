@@ -131,7 +131,7 @@ def getHistoricalValuesFromFinancialStatements(
         date = statementDates[i]
         value = statements[date][key]
 
-        if value:
+        if value or value == 0.00:
             historicalValue = float(value)
             historicalValues.append({"date": date, "value": historicalValue})
 
@@ -347,18 +347,6 @@ def getLatestFinancialStatement(statements):
     return statements[latestDate]
 
 
-def validateIncomeStatement(incomeStatement: IncomeStatement) -> bool:
-    if (
-        not incomeStatement
-        or not incomeStatement.totalRevenue
-        or not incomeStatement.netIncome
-        or not incomeStatement.incomeBeforeTax
-    ):
-        return False
-
-    return True
-
-
 def validateBalanceSheet(balanceSheet: BalanceSheet) -> bool:
     # TODO is retainedEarnings, currentLiabilities ever 0
     if (
@@ -369,18 +357,6 @@ def validateBalanceSheet(balanceSheet: BalanceSheet) -> bool:
         or not balanceSheet.currentLiabilities
         or not balanceSheet.retainedEarnings
         or not balanceSheet.cash
-    ):
-        return False
-
-    return True
-
-
-def validateCashFlowStatement(cashFlowStatement: CashFlowStatement):
-    # TODO is capex ever 0?
-    if (
-        not cashFlowStatement
-        or not cashFlowStatement.cashFromOperations
-        or not cashFlowStatement.capex
     ):
         return False
 
@@ -524,24 +500,13 @@ def getEarningsBeforeInterestAndTaxForYear(stock):
 
 
 def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
-    latestIncomeStatement: IncomeStatement = getLatestFinancialStatement(
-        stock.financialStatements.incomeStatements
-    )
     latestBalanceSheet: BalanceSheet = getLatestFinancialStatement(
         stock.financialStatements.balanceSheets
     )
-    latestCashFlowStatement: CashFlowStatement = getLatestFinancialStatement(
-        stock.financialStatements.cashFlowStatements
-    )
-
-    # validate the statements, if they're invalid just return an empty valuation
-    # since we can't accurately assess them
-    # NOTE if we bought stocks and that year they don't have these values, we don't know when to sell
-    if (
-        not validateIncomeStatement(latestIncomeStatement)
-        or not validateBalanceSheet(latestBalanceSheet)
-        or not validateCashFlowStatement(latestCashFlowStatement)
-    ):
+    if not validateBalanceSheet(latestBalanceSheet):
+        print(
+            f"Latest balance sheet is not valid for {stock.symbol}", balanceSheet, "\n"
+        )
         return Valuation()
 
     netIncomeAvg = getNetIncomeForYears(stock, model.yearsForEarningsCalcs)

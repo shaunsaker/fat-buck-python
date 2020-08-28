@@ -85,7 +85,7 @@ def getTrendEstimateForDate(
     predictionDate = mdates.datestr2num([date])[0]
     prediction = predict(predictionDate)
 
-    return prediction
+    return round(prediction, 2)
 
 
 def mergeIncomeStatements(a: IncomeStatement, b: IncomeStatement) -> IncomeStatement:

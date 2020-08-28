@@ -335,7 +335,7 @@ def getAltmanZScore(
     )
 
 
-def getLatestFinancialStatement(statements):
+def getLatestValidFinancialStatement(statements, validator):
     latestDate = ""
 
     for date in statements:
@@ -344,7 +344,15 @@ def getLatestFinancialStatement(statements):
     if not latestDate:
         return None
 
-    return statements[latestDate]
+    statement = statements[latestDate]
+    isValid = validator(statement)
+
+    if isValid:
+        return statement
+
+    # remove the invalid date and try again
+    del statements[latestDate]
+    return getLatestValidFinancialStatement(statements, validator)
 
 
 def validateBalanceSheet(balanceSheet: BalanceSheet) -> bool:
@@ -500,12 +508,15 @@ def getEarningsBeforeInterestAndTaxForYear(stock):
 
 
 def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
-    latestBalanceSheet: BalanceSheet = getLatestFinancialStatement(
-        stock.financialStatements.balanceSheets
+    latestBalanceSheet: BalanceSheet = getLatestValidFinancialStatement(
+        stock.financialStatements.balanceSheets, validateBalanceSheet
     )
+
     if not validateBalanceSheet(latestBalanceSheet):
         print(
-            f"Latest balance sheet is not valid for {stock.symbol}", balanceSheet, "\n"
+            f"Latest balance sheet is not valid for {stock.symbol}",
+            latestBalanceSheet,
+            "\n",
         )
         return Valuation()
 

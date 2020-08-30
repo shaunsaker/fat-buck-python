@@ -23,18 +23,9 @@ def getHistoricalIncomeStatementsByCycleType(
         incomeStatement.totalRevenue = stringToCurrency(
             historicalIncomeStatement.totalRevenue
         )
-
-        # we don't want discontinued operations profits to affect our valuation
-        # let's avoid it and use net income from continuous ops instead
-        if (
-            historicalIncomeStatement.discontinuedOperations
-            > historicalIncomeStatement.netIncome
-        ):
-            netIncome = historicalIncomeStatement.netIncomeFromContinuingOps
-        else:
-            netIncome = historicalIncomeStatement.netIncome
-
-        incomeStatement.netIncome = stringToCurrency(netIncome)
+        incomeStatement.netIncome = stringToCurrency(
+            historicalIncomeStatement.netIncome
+        )
         incomeStatement.incomeBeforeTax = stringToCurrency(
             historicalIncomeStatement.incomeBeforeTax
         )

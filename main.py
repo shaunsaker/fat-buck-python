@@ -13,6 +13,7 @@ from utils import (
 from models import Stock, FinancialStatements
 from fetchLatestPrice import fetchLatestPrice
 from fetchHistoricalFundamentals import fetchHistoricalFundamentals
+from makeProfile import makeProfile
 from makeHistoricalFinancialStatements import makeHistoricalFinancialStatements
 from fetchLatestFinancialStatements import fetchLatestFinancialStatements
 from makeLatestFinancialStatements import makeLatestFinancialStatements
@@ -121,6 +122,9 @@ def processStock(symbol):
             print("No historical financial statements.")
             removeStock(stockRef, symbol)
             return
+
+        profile = makeProfile(historicalFundamentals)
+        stock.profile = profile
 
         historicalFinancialStatements = makeHistoricalFinancialStatements(
             historicalFundamentals

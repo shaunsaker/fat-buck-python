@@ -109,53 +109,32 @@ def getGrowthRate(values):
     return growthRate
 
 
-def getHistoricalValuesFromFinancialStatements(
-    statements, key: str, limitTo: int = None
-):
-    statementDates = []
-    historicalValues = []
+def getNetIncomeGrowthRate(stock: Stock, model: ValuationModel) -> Ratio:
+    now = datetime.now()
+    aYearAgo = now - timedelta(days=365)
+    aYearAgoString = utils.dateToDateString(aYearAgo)
+    nowString = utils.dateToDateString(now)
+    order = 1  # get the linear growth rate
 
-    for date in statements:
-        statementDates.append(date)
-
-    if limitTo:
-        # reverse sort if needed so that we can get the latest X items
-        if statementDates[0] < statementDates[1]:
-            statementDates = sorted(statementDates, reverse=True)
-
-        noOfValues = min(limitTo, len(statementDates))
-    else:
-        noOfValues = len(statementDates)
-
-    for i in range(noOfValues):
-        date = statementDates[i]
-        value = statements[date][key]
-
-        if value or value == 0.00:
-            historicalValue = float(value)
-            historicalValues.append({"date": date, "value": historicalValue})
-
-    if len(historicalValues) <= 1:
-        return historicalValues
-
-    # get the correct asc sorting
-    if historicalValues[0]["date"] > historicalValues[1]["date"]:
-        historicalValues = sorted(historicalValues, key=lambda k: k["date"])
-
-    return historicalValues
-
-
-def getValueGrowthRate(
-    stock: Stock, statementType: str, key: str, limitTo: int
-) -> Ratio:
-    historicalValues = getHistoricalValuesFromFinancialStatements(
-        stock.financialStatements[statementType], key, limitTo
+    initialValue = utils.getTrendEstimateForDate(
+        stock.financialStatements.incomeStatements,
+        "netIncome",
+        IncomeStatement(),
+        aYearAgoString,
+        order,
     )
-    values = []
-    for item in historicalValues:
-        values.append(item["value"])
+    finalValue = utils.getTrendEstimateForDate(
+        stock.financialStatements.incomeStatements,
+        "netIncome",
+        IncomeStatement(),
+        nowString,
+        order,
+    )
 
-    return getGrowthRate(values)
+    growthRate = getGrowthRate([initialValue, finalValue])
+    conservativeGrowthRate = growthRate - model.minMos
+
+    return conservativeGrowthRate
 
 
 def getPriceGrowthRate(stock: Stock) -> Ratio:
@@ -381,7 +360,7 @@ def getStatementYears(stock: Stock):
 
 def getAvgPe(stock):
     peList = []
-    historicalNetIncomes = getHistoricalValuesFromFinancialStatements(
+    historicalNetIncomes = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements,
         "netIncome",
         ValuationModel.yearsForEarningsCalcs * 4,
@@ -404,7 +383,7 @@ def getAvgPe(stock):
 
 
 def getDividendYieldForYear(stock):
-    historicalDividends = getHistoricalValuesFromFinancialStatements(
+    historicalDividends = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.cashFlowStatements, "dividendsPaid", 4
     )
 
@@ -420,10 +399,10 @@ def getDividendYieldForYear(stock):
 
 
 def getFcfForYear(stock):
-    historicalCashFromOperations = getHistoricalValuesFromFinancialStatements(
+    historicalCashFromOperations = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.cashFlowStatements, "cashFromOperations", 4
     )
-    historicalCapex = getHistoricalValuesFromFinancialStatements(
+    historicalCapex = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.cashFlowStatements, "capex", 4
     )
 
@@ -438,7 +417,7 @@ def getFcfForYear(stock):
 
 
 def getNetIncomeForYear(stock):
-    historicalNetIncomes = getHistoricalValuesFromFinancialStatements(
+    historicalNetIncomes = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements, "netIncome", 4
     )
 
@@ -451,7 +430,7 @@ def getNetIncomeForYear(stock):
 
 
 def getNetIncomeForYears(stock, years):
-    historicalNetIncomes = getHistoricalValuesFromFinancialStatements(
+    historicalNetIncomes = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements,
         "netIncome",
         years * 4,  # * 4 quarters
@@ -466,7 +445,7 @@ def getNetIncomeForYears(stock, years):
 
 
 def getTotalRevenueForYear(stock):
-    historicalTotalRevenue = getHistoricalValuesFromFinancialStatements(
+    historicalTotalRevenue = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements, "totalRevenue", 4
     )
 
@@ -479,13 +458,13 @@ def getTotalRevenueForYear(stock):
 
 
 def getEarningsBeforeInterestAndTaxForYear(stock):
-    historicalIncomeBeforeTax = getHistoricalValuesFromFinancialStatements(
+    historicalIncomeBeforeTax = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements, "incomeBeforeTax", 4
     )
-    historicalInterestExpense = getHistoricalValuesFromFinancialStatements(
+    historicalInterestExpense = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements, "interestExpense", 4
     )
-    historicalInterestIncome = getHistoricalValuesFromFinancialStatements(
+    historicalInterestIncome = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements, "interestIncome", 4
     )
 
@@ -531,13 +510,42 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     marketCap = getMarketCap(stock.sharesOutstanding, stock.currentPrice)
     eps = getEps(netIncomeAvg, stock.sharesOutstanding)
     pe = getPe(stock.currentPrice, eps)
-    growthRate = getValueGrowthRate(
-        stock, "incomeStatements", "netIncome", model.yearsForEarningsCalcs * 4
-    ) * (1 - model.minMos)
+    growthRate = getNetIncomeGrowthRate(stock, model)
+    priceGrowthRate = getPriceGrowthRate(stock)
     peg = getPeg(pe, growthRate)
     totalRevenue = getTotalRevenueForYear(stock)
     earningsBeforeInterestAndTax = getEarningsBeforeInterestAndTaxForYear(stock)
     statementYears = getStatementYears(stock)
+    pb = customRound(getPb(stock.currentPrice, equity, stock.sharesOutstanding), 2)
+    blendedMultiplier = pe * pb
+    currentLiabilities = customRound(latestBalanceSheet.currentLiabilities, 2)
+    altmanZScore = getAltmanZScore(
+        assets,
+        liabilities,
+        latestBalanceSheet.retainedEarnings,
+        earningsBeforeInterestAndTax,
+        totalRevenue,
+    )
+    peMultipleIv = getPeMultipleIv(eps, pe, growthRate, model.discountRate)
+    grahamIv = getGrahamIv(eps, growthRate, model.discountRate)
+    dcfIv = getDcfIv(
+        fcf,
+        latestBalanceSheet.cash,
+        currentLiabilities,
+        stock.sharesOutstanding,
+        growthRate,
+        model.declineRate,
+        model.discountRate,
+    )
+    roeIv = getRoeIv(
+        equity,
+        roe,
+        stock.sharesOutstanding,
+        dividendYield,
+        growthRate,
+        model.discountRate,
+    )
+    liquidationIv = getLiquidationIv(equity, stock.sharesOutstanding)
 
     valuation = Valuation()
     valuation.dividendYield = customRound(dividendYield, 2)
@@ -545,60 +553,22 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
     valuation.roe = customRound(roe, 2)
     valuation.roa = customRound(roa, 2)
     valuation.growthRate = customRound(growthRate, 2)
-    valuation.priceGrowthRate = customRound(getPriceGrowthRate(stock), 2)
-    currentLiabilities = customRound(latestBalanceSheet.currentLiabilities, 2)
+    valuation.priceGrowthRate = customRound(priceGrowthRate, 2)
     valuation.dte = customRound(getDte(currentLiabilities, equity), 2)
     valuation.cr = customRound(getCr(assets, currentLiabilities), 2)
     valuation.eps = customRound(eps, 2)
     valuation.pe = customRound(pe, 2)
     valuation.peg = customRound(peg, 2)
-    pb = customRound(getPb(stock.currentPrice, equity, stock.sharesOutstanding), 2)
     valuation.pb = customRound(pb, 2)
-    valuation.blendedMultiplier = customRound(pe * pb, 2)
+    valuation.blendedMultiplier = customRound(blendedMultiplier, 2)
     valuation.fcf = customRound(fcf, 2)
-    valuation.altmanZScore = customRound(
-        getAltmanZScore(
-            assets,
-            liabilities,
-            latestBalanceSheet.retainedEarnings,
-            earningsBeforeInterestAndTax,
-            totalRevenue,
-        ),
-        2,
-    )
+    valuation.altmanZScore = customRound(altmanZScore, 2,)
     valuation.statementYears = statementYears
-    valuation.peMultipleIv = customRound(
-        getPeMultipleIv(eps, pe, growthRate, model.discountRate), 2
-    )
-    valuation.grahamIv = customRound(
-        getGrahamIv(eps, growthRate, model.discountRate), 2
-    )
-    valuation.dcfIv = customRound(
-        getDcfIv(
-            fcf,
-            latestBalanceSheet.cash,
-            currentLiabilities,
-            stock.sharesOutstanding,
-            growthRate,
-            model.declineRate,
-            model.discountRate,
-        ),
-        2,
-    )
-    valuation.roeIv = customRound(
-        getRoeIv(
-            equity,
-            roe,
-            stock.sharesOutstanding,
-            dividendYield,
-            growthRate,
-            model.discountRate,
-        ),
-        2,
-    )
-    valuation.liquidationIv = customRound(
-        getLiquidationIv(equity, stock.sharesOutstanding), 2
-    )
+    valuation.peMultipleIv = customRound(peMultipleIv, 2)
+    valuation.grahamIv = customRound(grahamIv, 2)
+    valuation.dcfIv = customRound(dcfIv, 2,)
+    valuation.roeIv = customRound(roeIv, 2,)
+    valuation.liquidationIv = customRound(liquidationIv, 2)
 
     return valuation
 

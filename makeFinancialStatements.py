@@ -13,10 +13,6 @@ from models import (
     AllFinancialStatements,
 )
 import utils
-from evaluate import getHistoricalValuesFromFinancialStatements, getGrowthRate
-from datetime import datetime
-import numpy as np
-import matplotlib.dates as mdates
 
 
 def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
@@ -48,44 +44,6 @@ def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
         nextDate = utils.getEndOfMonth(nextDate + relativedelta(months=3))
 
     return quarterlyDates
-
-
-def getTrendEstimateForDate(
-    statements, key, factory, date, shouldUseZeroValues=False,
-):
-    # filter out empty statements and 0 values if not shouldUseZeroValues
-    nonEmptyStatements = {}
-    for date in statements:
-        statement = statements[date]
-        value = statement[key]
-        if (
-            statement != factory
-            and shouldUseZeroValues
-            or not shouldUseZeroValues
-            and value
-        ):
-            nonEmptyStatements[date] = statement
-
-    historicalValues = getHistoricalValuesFromFinancialStatements(
-        nonEmptyStatements, key
-    )
-
-    if len(historicalValues) <= 1:
-        return 0
-
-    y = np.array([item["value"] for item in historicalValues])
-
-    # extract and convert date strings to numbers
-    dates = [item["date"] for item in historicalValues]
-    x = np.array(mdates.datestr2num(dates))
-
-    # machine learning!
-    model = np.polyfit(x, y, 1)  # NOTE: 1 == linear, 2+ == polynomial
-    predict = np.poly1d(model)
-    predictionDate = mdates.datestr2num([date])[0]
-    prediction = predict(predictionDate)
-
-    return round(prediction, 2)
 
 
 def mergeIncomeStatements(a: IncomeStatement, b: IncomeStatement) -> IncomeStatement:
@@ -276,19 +234,19 @@ def makeFinancialStatements(
 
         if quarterlyStatement == IncomeStatement():
             # TODO: should we limit it to the last few years?
-            totalRevenue = getTrendEstimateForDate(
+            totalRevenue = utils.getTrendEstimateForDate(
                 incomeStatements, "totalRevenue", IncomeStatement(), date
             )
-            netIncome = getTrendEstimateForDate(
+            netIncome = utils.getTrendEstimateForDate(
                 incomeStatements, "netIncome", IncomeStatement(), date
             )
-            incomeBeforeTax = getTrendEstimateForDate(
+            incomeBeforeTax = utils.getTrendEstimateForDate(
                 incomeStatements, "incomeBeforeTax", IncomeStatement(), date
             )
-            interestExpense = getTrendEstimateForDate(
+            interestExpense = utils.getTrendEstimateForDate(
                 incomeStatements, "interestExpense", IncomeStatement(), date
             )
-            interestIncome = getTrendEstimateForDate(
+            interestIncome = utils.getTrendEstimateForDate(
                 incomeStatements, "interestIncome", IncomeStatement(), date
             )
             incomeStatement = IncomeStatement(
@@ -345,22 +303,24 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == BalanceSheet():
-            assets = getTrendEstimateForDate(
+            assets = utils.getTrendEstimateForDate(
                 balanceSheets, "assets", BalanceSheet(), date
             )
-            currentAssets = getTrendEstimateForDate(
+            currentAssets = utils.getTrendEstimateForDate(
                 balanceSheets, "currentAssets", BalanceSheet(), date
             )
-            liabilities = getTrendEstimateForDate(
+            liabilities = utils.getTrendEstimateForDate(
                 balanceSheets, "liabilities", BalanceSheet(), date
             )
-            retainedEarnings = getTrendEstimateForDate(
+            retainedEarnings = utils.getTrendEstimateForDate(
                 balanceSheets, "retainedEarnings", BalanceSheet(), date
             )
-            currentLiabilities = getTrendEstimateForDate(
+            currentLiabilities = utils.getTrendEstimateForDate(
                 balanceSheets, "currentLiabilities", BalanceSheet(), date
             )
-            cash = getTrendEstimateForDate(balanceSheets, "cash", BalanceSheet(), date)
+            cash = utils.getTrendEstimateForDate(
+                balanceSheets, "cash", BalanceSheet(), date
+            )
             balanceSheet = BalanceSheet(
                 assets=assets,
                 currentAssets=currentAssets,
@@ -413,13 +373,13 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == CashFlowStatement():
-            dividendsPaid = getTrendEstimateForDate(
+            dividendsPaid = utils.getTrendEstimateForDate(
                 cashFlowStatements, "dividendsPaid", CashFlowStatement(), date
             )
-            cashFromOperations = getTrendEstimateForDate(
+            cashFromOperations = utils.getTrendEstimateForDate(
                 cashFlowStatements, "cashFromOperations", CashFlowStatement(), date
             )
-            capex = getTrendEstimateForDate(
+            capex = utils.getTrendEstimateForDate(
                 cashFlowStatements, "capex", CashFlowStatement(), date
             )
             cashFlowStatement = CashFlowStatement(

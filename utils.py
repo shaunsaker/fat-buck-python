@@ -4,6 +4,8 @@ from typing import TypeVar
 import urllib.request
 import json
 from datetime import timedelta, datetime
+import numpy as np
+import matplotlib.dates as mdates
 
 from models import Currency, IncomeStatement, BalanceSheet, CashFlowStatement
 
@@ -171,3 +173,71 @@ def getNumberOfSymbolsToProcess(_exchanges):
         total += len(_exchangeSymbols)
 
     return total
+
+
+def getHistoricalValuesFromFinancialStatements(
+    statements, key: str, limitTo: int = None
+):
+    statementDates = []
+    historicalValues = []
+
+    for date in statements:
+        statementDates.append(date)
+
+    if limitTo:
+        # reverse sort if needed so that we can get the latest X items
+        if statementDates[0] < statementDates[1]:
+            statementDates = sorted(statementDates, reverse=True)
+
+        noOfValues = min(limitTo, len(statementDates))
+    else:
+        noOfValues = len(statementDates)
+
+    for i in range(noOfValues):
+        date = statementDates[i]
+        value = statements[date][key]
+
+        if value or value == 0.00:
+            historicalValue = float(value)
+            historicalValues.append({"date": date, "value": historicalValue})
+
+    if len(historicalValues) <= 1:
+        return historicalValues
+
+    # get the correct asc sorting
+    if historicalValues[0]["date"] > historicalValues[1]["date"]:
+        historicalValues = sorted(historicalValues, key=lambda k: k["date"])
+
+    return historicalValues
+
+
+def getTrendEstimateForDate(statements, key, factory, targetDate, order=2):
+    # filter out empty statements and 0 values if not shouldUseZeroValues
+    nonEmptyStatements = {}
+    for date in statements:
+        statement = statements[date]
+        value = statement[key]
+        if statement != factory and value:
+            nonEmptyStatements[date] = statement
+
+    historicalValues = getHistoricalValuesFromFinancialStatements(
+        nonEmptyStatements, key
+    )
+
+    # require at least 3 values
+    if len(historicalValues) <= 2:
+        return 0
+
+    y = np.array([item["value"] for item in historicalValues])
+
+    # extract and convert date strings to numbers
+    dates = [item["date"] for item in historicalValues]
+    x = np.array(mdates.datestr2num(dates))
+
+    # machine learning!
+    model = np.polyfit(x, y, order)  # NOTE: 1 == linear, 2+ == polynomial
+    predict = np.poly1d(model)
+    predictionDate = mdates.datestr2num([targetDate])[0]
+    prediction = predict(predictionDate)
+
+    return round(prediction, 2)

@@ -495,8 +495,6 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
         )
         return Valuation()
 
-    print(latestBalanceSheet)
-
     netIncomeAvg = getNetIncomeAvg(stock, model.yearsForEarningsCalcs)
     assets = latestBalanceSheet.assets
     liabilities = latestBalanceSheet.liabilities

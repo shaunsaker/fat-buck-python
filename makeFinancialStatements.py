@@ -303,24 +303,12 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == BalanceSheet():
-            assets = utils.getTrendEstimateForDate(
-                balanceSheets, "assets", BalanceSheet(), date
-            )
-            currentAssets = utils.getTrendEstimateForDate(
-                balanceSheets, "currentAssets", BalanceSheet(), date
-            )
-            liabilities = utils.getTrendEstimateForDate(
-                balanceSheets, "liabilities", BalanceSheet(), date
-            )
-            retainedEarnings = utils.getTrendEstimateForDate(
-                balanceSheets, "retainedEarnings", BalanceSheet(), date
-            )
-            currentLiabilities = utils.getTrendEstimateForDate(
-                balanceSheets, "currentLiabilities", BalanceSheet(), date
-            )
-            cash = utils.getTrendEstimateForDate(
-                balanceSheets, "cash", BalanceSheet(), date
-            )
+            assets = 0  # asset, don't trend
+            currentAssets = 0
+            liabilities = 0
+            retainedEarnings = 0
+            currentLiabilities = 0
+            cash = 0
             balanceSheet = BalanceSheet(
                 assets=assets,
                 currentAssets=currentAssets,
@@ -349,9 +337,11 @@ def makeFinancialStatements(
             if yearlyStatement and not isCashFlowStatementEmptyOrInvalid(
                 yearlyStatement
             ):
-                dividendsPaid = yearlyStatement.dividendsPaid / 4
-                cashFromOperations = yearlyStatement.cashFromOperations / 4
-                capex = yearlyStatement.capex / 4
+                dividendsPaid = (
+                    yearlyStatement.dividendsPaid
+                )  # asset, don't divide by 4
+                cashFromOperations = yearlyStatement.cashFromOperations
+                capex = yearlyStatement.capex
                 estimatedStatement = CashFlowStatement(
                     dividendsPaid=dividendsPaid,
                     cashFromOperations=cashFromOperations,
@@ -373,15 +363,9 @@ def makeFinancialStatements(
         )
 
         if quarterlyStatement == CashFlowStatement():
-            dividendsPaid = utils.getTrendEstimateForDate(
-                cashFlowStatements, "dividendsPaid", CashFlowStatement(), date
-            )
-            cashFromOperations = utils.getTrendEstimateForDate(
-                cashFlowStatements, "cashFromOperations", CashFlowStatement(), date
-            )
-            capex = utils.getTrendEstimateForDate(
-                cashFlowStatements, "capex", CashFlowStatement(), date
-            )
+            dividendsPaid = 0  # asset, don't trend this
+            cashFromOperations = 0
+            capex = 0
             cashFlowStatement = CashFlowStatement(
                 dividendsPaid=dividendsPaid,
                 cashFromOperations=cashFromOperations,

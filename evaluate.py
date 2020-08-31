@@ -69,8 +69,6 @@ def getEps(netIncome: Currency, sharesOutstanding: Shares) -> Ratio:
 
 
 def getPe(currentPrice: Currency, eps: Ratio) -> Ratio:
-    return currentPrice / eps
-
     return utils.safeDivide(currentPrice, eps)
 
 
@@ -111,16 +109,16 @@ def getGrowthRate(values):
 
 def getNetIncomeGrowthRate(stock: Stock, model: ValuationModel) -> Ratio:
     now = datetime.now()
-    aYearAgo = now - timedelta(days=365)
-    aYearAgoString = utils.dateToDateString(aYearAgo)
+    then = now - timedelta(days=(365 * model.yearsForEarningsCalcs))
+    thenString = utils.dateToDateString(then)
     nowString = utils.dateToDateString(now)
-    order = 1  # get the linear growth rate
+    order = 1  # CFO using linear growth here but we normally use poly for growth rate
 
     initialValue = utils.getTrendEstimateForDate(
         stock.financialStatements.incomeStatements,
         "netIncome",
         IncomeStatement(),
-        aYearAgoString,
+        thenString,
         order,
     )
     finalValue = utils.getTrendEstimateForDate(
@@ -131,8 +129,9 @@ def getNetIncomeGrowthRate(stock: Stock, model: ValuationModel) -> Ratio:
         order,
     )
 
-    growthRate = getGrowthRate([initialValue, finalValue])
-    conservativeGrowthRate = growthRate - model.minMos
+    growthRate = getGrowthRate([initialValue, finalValue]) / model.yearsForEarningsCalcs
+    isNegative = growthRate < 0 and -1 or 1
+    conservativeGrowthRate = growthRate * (1 - (isNegative * model.minMos))
 
     return conservativeGrowthRate
 
@@ -151,9 +150,9 @@ def getPriceGrowthRate(stock: Stock) -> Ratio:
             if price:
                 historicalValues.append(price)
 
-    growthRate = getGrowthRate(historicalValues)
+    priceGrowthRate = getGrowthRate(historicalValues)
 
-    return growthRate
+    return priceGrowthRate
 
 
 def getNpv(futureValue: Currency, discountRate: Ratio, noYrs: int) -> Currency:
@@ -377,8 +376,6 @@ def getAvgPe(stock):
 
     avgPe = 4 * sum(peList) / len(peList)  # x4 to get yearly value
 
-    print(avgPe)
-
     return avgPe
 
 
@@ -429,7 +426,7 @@ def getNetIncomeForYear(stock):
     return netIncomeForYear
 
 
-def getNetIncomeForYears(stock, years):
+def getNetIncomeAvg(stock, years):
     historicalNetIncomes = utils.getHistoricalValuesFromFinancialStatements(
         stock.financialStatements.incomeStatements,
         "netIncome",
@@ -470,9 +467,8 @@ def getEarningsBeforeInterestAndTaxForYear(stock):
 
     earningsBeforeInterestAndTaxForYear = 0
     for i in range(len(historicalIncomeBeforeTax)):
-        earningsBeforeInterestAndTaxForQuarter = (
-            i in historicalIncomeBeforeTax
-            and historicalIncomeBeforeTax[i]["value"]
+        earningsBeforeInterestAndTaxForQuarter = historicalIncomeBeforeTax[i] and (
+            historicalIncomeBeforeTax[i]["value"]
             or 0 - i in historicalInterestExpense
             and abs(historicalInterestExpense[i]["value"])
             or 0 + i in historicalInterestIncome
@@ -499,7 +495,9 @@ def getValuation(stock: Stock, model: ValuationModel) -> Valuation:
         )
         return Valuation()
 
-    netIncomeAvg = getNetIncomeForYears(stock, model.yearsForEarningsCalcs)
+    print(latestBalanceSheet)
+
+    netIncomeAvg = getNetIncomeAvg(stock, model.yearsForEarningsCalcs)
     assets = latestBalanceSheet.assets
     liabilities = latestBalanceSheet.liabilities
     equity = getEquity(assets, liabilities)
@@ -584,11 +582,11 @@ def getViability(valuation: Valuation, model: ValuationModel) -> bool:
         or valuation.growthRate < model.minGrowthRate
         or valuation.dte > model.maxDte
         or valuation.dte < 0
+        or valuation.dte < 0
         or valuation.cr < model.minCr
         or valuation.eps < model.minEps
         or valuation.pe > model.maxPe
         or valuation.pe < 0
-        or not valuation.pe
         or valuation.peg > model.maxPeg
         or valuation.peg < 0
         or not valuation.peg

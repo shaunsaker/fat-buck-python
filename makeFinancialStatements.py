@@ -18,18 +18,15 @@ import utils
 def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
     startDateString = ""
     endDateString = ""
-    statementTypes = ["incomeStatements", "balanceSheets", "cashFlowStatements"]
-    cycles = ["quarterly", "yearly"]
 
-    for cycle in cycles:
-        for statementType in statementTypes:
-            for date in existingStatements[statementType]:
-                startDateString = utils.getSmallest(startDateString, date)
-                endDateString = utils.getLargest(endDateString, date)
+    # CFO A stock may have initial statements that do not fall on a quarterly date, E.g. BUC.JO, this will disregard that statement
+    for date in existingStatements.incomeStatements:
+        startDateString = utils.getSmallest(startDateString, date)
+        endDateString = utils.getLargest(endDateString, date)
 
-            for date in latestStatements[statementType][cycle]:
-                startDateString = utils.getSmallest(startDateString, date)
-                endDateString = utils.getLargest(endDateString, date)
+    for date in latestStatements.incomeStatements.quarterly:
+        startDateString = utils.getSmallest(startDateString, date)
+        endDateString = utils.getLargest(endDateString, date)
 
     if not startDateString and not endDateString:
         return None
@@ -98,12 +95,15 @@ def getMergedStatements(
             for key in latestStatement:
                 if isinstance(latestStatement[key], float):
                     latestStatement[key] = latestStatement[key] / 4
+                else:
+                    latestStatement[key] = 0.00
 
         existingStatement = (
             date in existingStatements[statementType]
             and not existingStatements[statementType][date].estimate
             and existingStatements[statementType][date]
         ) or factory  # is always quarterly, don't use estimates (we want to extrapolate new values instead)
+
         mergedStatement = merger(latestStatement, existingStatement)
         mergedStatements[date] = mergedStatement
 

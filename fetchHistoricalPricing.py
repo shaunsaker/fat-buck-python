@@ -12,12 +12,16 @@ def fetchHistoricalPricing(symbol: str) -> HistoricalPricing:
     priceHistoryDf = data.history(period="1y")
     historicalPricing = {}
 
-    for index, row in priceHistoryDf.iterrows():
-        date = index[1].__str__()
-        pricing = HistoricalPrice()
-        pricing.open = round(row.open, 2)
-        pricing.close = round(row.close, 2)
-        historicalPricing[date] = pricing
+    # sometimes iterrows is undefined
+    try:
+        for index, row in priceHistoryDf.iterrows():
+            date = index[1].__str__()
+            pricing = HistoricalPrice()
+            pricing.open = round(row.open, 2)
+            pricing.close = round(row.close, 2)
+            historicalPricing[date] = pricing
+    except:
+        return None
 
     return historicalPricing
 

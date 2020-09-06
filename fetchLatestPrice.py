@@ -7,7 +7,12 @@ import utils
 def fetchLatestPrice(stock: Stock, exchange: str) -> Currency:
     data: YahooQueryTickerData = Ticker(stock.symbol)
     priceData = data.price[stock.symbol]
-    priceString = priceData["regularMarketPrice"]
+
+    # sometimes we get the string indices must be integers error
+    try:
+        priceString = priceData["regularMarketPrice"]
+    except:
+        return None
 
     currentPrice = utils.stringToCurrency(priceString)
 

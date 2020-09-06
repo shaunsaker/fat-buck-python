@@ -82,7 +82,7 @@ def processStock(symbol):
 
     if not sharesOutstanding:
         print("No shares.")
-        removeStock(stockRef, symbol)
+        # removeStock(stockRef, symbol)
         return
 
     stock.sharesOutstanding = sharesOutstanding
@@ -93,7 +93,7 @@ def processStock(symbol):
     # if there is no price or the price is 0, remove the stock
     if not latestPrice:
         print("No price.")
-        removeStock(stockRef, symbol)
+        # removeStock(stockRef, symbol)
         return
 
     stock.currentPrice = latestPrice
@@ -104,7 +104,7 @@ def processStock(symbol):
     # if latest statements are empty
     if yahooStatements.incomeStatements.yearly == {}:
         print("No latest financial statements.")
-        removeStock(stockRef, symbol)
+        # removeStock(stockRef, symbol)
         return
 
     # parse latest statements
@@ -120,7 +120,7 @@ def processStock(symbol):
             or historicalFundamentals.Financials.Income_Statement.yearly == {}
         ):
             print("No historical financial statements.")
-            removeStock(stockRef, symbol)
+            # removeStock(stockRef, symbol)
             return
 
         profile = makeProfile(historicalFundamentals)
@@ -147,7 +147,7 @@ def processStock(symbol):
     # if empty financial statements, we don't want to save it
     if not financialStatements:
         print("No financial statements.")
-        removeStock(stockRef, symbol)
+        # removeStock(stockRef, symbol)
         return
 
     stock.financialStatements = financialStatements
@@ -157,7 +157,7 @@ def processStock(symbol):
 
     if not historicalPricing:
         print("No historical pricing.")
-        removeStock(stockRef, symbol)
+        # removeStock(stockRef, symbol)
         return
 
     if historicalPricing:

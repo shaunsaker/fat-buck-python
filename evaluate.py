@@ -129,6 +129,9 @@ def getNetIncomeGrowthRate(stock: Stock, model: ValuationModel) -> Ratio:
         order,
     )
 
+    if not initialValue or not finalValue:
+        return 0
+
     growthRate = getGrowthRate([initialValue, finalValue]) / model.yearsForEarningsCalcs
     isNegative = growthRate < 0 and -1 or 1
     conservativeGrowthRate = growthRate * (1 - (isNegative * model.minMos))

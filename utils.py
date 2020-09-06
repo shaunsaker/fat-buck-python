@@ -219,7 +219,6 @@ def getTrendEstimateForDate(statements, key, factory, targetDate, order=2):
         value = statement[key]
         if statement != factory and value:
             nonEmptyStatements[date] = statement
-
     historicalValues = getHistoricalValuesFromFinancialStatements(
         nonEmptyStatements, key
     )

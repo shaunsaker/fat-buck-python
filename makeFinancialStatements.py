@@ -16,6 +16,7 @@ import utils
 
 
 def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
+    # TODO: this needs to change, we should rather aim to use the actual statement dates but make sure they are close to quarterly (financial years change)
     startDateString = ""
     endDateString = ""
 
@@ -25,6 +26,10 @@ def getQuarterlyDates(existingStatements, latestStatements) -> DateRange:
         endDateString = utils.getLargest(endDateString, date)
 
     for date in latestStatements.incomeStatements.quarterly:
+        startDateString = utils.getSmallest(startDateString, date)
+        endDateString = utils.getLargest(endDateString, date)
+
+    for date in latestStatements.incomeStatements.yearly:
         startDateString = utils.getSmallest(startDateString, date)
         endDateString = utils.getLargest(endDateString, date)
 
@@ -150,6 +155,7 @@ def makeFinancialStatements(
         IncomeStatement(),
         mergeIncomeStatements,
     )
+    # print("QUARTERLY", mergedQuarterlyIncomeStatements)
 
     mergedYearlyIncomeStatements = getMergedStatements(
         quarterlyDates,
@@ -159,6 +165,7 @@ def makeFinancialStatements(
         IncomeStatement(),
         mergeIncomeStatements,
     )
+    # print("YEARLY", mergedQuarterlyIncomeStatements)
 
     mergedQuarterlyBalanceSheets = getMergedStatements(
         quarterlyDates,

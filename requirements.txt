@@ -2,3 +2,4 @@ typedload
 alive_progress
 firebase_admin
 yahooquery
+matplotlib
